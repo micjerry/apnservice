@@ -92,7 +92,8 @@ class ApnConsumer(object):
         logging.info('Issuing consumer')
         self.add_on_cancel_callback()
         self._consumer_tag = self._channel.basic_consume(self.on_message,
-                                                         self.QUEUE)
+                                                         self.QUEUE,
+                                                         no_ack = True)
 
     def add_on_cancel_callback(self):
         logging.info('Adding consumer cancellation callback')

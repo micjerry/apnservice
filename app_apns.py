@@ -6,11 +6,19 @@ sys.path.append('/opt/webapps/libs')
 import logging
 import logging.handlers
 
+import tornado
+from tornado.options import define, options
+
 import mickey.logutil
 from mickey.daemon import Daemon
 
 from apncomsumer import ApnConsumer
 from apnpush import ApnPush
+
+define("conf", default="/etc/mx_apps/app_apns/app_apns_is1.conf", help="Server config")
+define("cmd", default="run", help="Command")
+define("pidfile", default="/var/run/app_apns_is1.pid", help="Pid file")
+define("logfile", default="/var/log/app_apns_is1", help="Log file")
 
 class ApnServer(object):
     def __init__(self):
@@ -27,7 +35,7 @@ class ApnServer(object):
 
 class MickeyDamon(Daemon):
     def run(self):
-        mickey.logutil.setuplognormal()
+        mickey.logutil.setuplognormal(options.logfile)
         apnserver = ApnServer()
         apnserver.start()
 
@@ -35,19 +43,17 @@ class MickeyDamon(Daemon):
         print("unkown command")
  
 def micmain():
-    if len(sys.argv) < 2:
-        print("invalid command")
-        return
+    tornado.options.parse_command_line()
+    tornado.options.parse_config_file(options.conf)
 
-    pid_file_name = "/var/run/" + sys.argv[0].replace(".py", ".pid")
-    miceydamon = MickeyDamon(pid_file_name)
+    miceydamon = MickeyDamon(options.pidfile)
     handler = {}
     handler["start"] = miceydamon.start
     handler["stop"] = miceydamon.stop
     handler["restart"] = miceydamon.restart
     handler["run"] = miceydamon.run
 
-    return handler.get(sys.argv[1],miceydamon.errorcmd)()
+    return handler.get(options.cmd, miceydamon.errorcmd)()
 
 if __name__ == "__main__":
     micmain()
