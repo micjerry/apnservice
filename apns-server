@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# apns server - Startup script for apns server
+# app_apns server - Startup script for app_apns server
 # chkconfig: 35 90 10
-# description: apns server.
-# processname: apns
-# config: 
-# pidfile: /var/run/app_apns.pid
+# description: app_apns server.
+# processname: app_apns
+# config: /etc/mx_apps/app_apns
+# pidfile: /var/run/app_apns
 
 ### BEGIN INIT INFO
-# Provides: apns-server
+# Provides: app_apns
 # Required-Start: $local_fs $remote_fs $network
 # Required-Stop: $local_fs $remote_fs $network
 # Default-Start: 2 3 4 5
@@ -21,11 +21,13 @@
 
 SERVER_NAME="Apns-Server"
 SERVER_CMD="/root/.pyenv/versions/3.4.3/bin/python"
-SERVER_PTH="/opt/webapps/apns"
-SERVER_OPT="app_apns.py"
-SERVER_OPT_START="${SERVER_OPT} start"
-SERVER_OPT_STOP="${SERVER_OPT} stop"
-SERVER_PID="/var/run/app_apns.pid"
+SERVER_SCP="app_apns"
+SERVER_PTH="/opt/webapps/${SERVER_SCP}"
+SERVER_OPT="${SERVER_SCP}.py"
+SERVER_OPT_START="${SERVER_OPT} --cmd=start --conf="
+SERVER_OPT_STOP="${SERVER_OPT} --cmd=stop --conf="
+SERVER_TMP="/tmp/${SERVER_SCP}.tmp"
+SERVER_CONFPATH="/etc/mx_apps/${SERVER_SCP}/${SERVER_SCP}_is*"
 
 die()
 {
@@ -44,40 +46,61 @@ usage()
 
 start_service()
 {
-  if [ ! -f ${SERVER_PID} ]; then
-    cd ${SERVER_PTH} 
-    rs=`$SERVER_CMD $SERVER_OPT_START`
-    cd - >/dev/null 2>&1
-  else
-    echo $"${SERVER_NAME} already running"
-  fi
+  ls ${SERVER_CONFPATH} > ${SERVER_TMP}
+
+  while read line;
+  do
+    if [ -f ${line} ]; then
+      pidfile_name=`cat ${line}  | grep pidfile | awk -F '=' '{print $2}'`
+      pidfile=${pidfile_name//\"/}
+      if [ ! -f ${pidfile} ]; then
+        cd ${SERVER_PTH};
+        rs=`$SERVER_CMD ${SERVER_OPT_START}${line}`
+        cd - >/dev/null 2>&1
+      fi
+    fi
+  done < ${SERVER_TMP}
 }
 
 stop_service()
 {
-  if [ -f ${SERVER_PID} ]; then
-    cd ${SERVER_PTH} 
-    rs=`$SERVER_CMD $SERVER_OPT_STOP`
-    cd - >/dev/null 2>&1
-    usleep 10000
-  else
-    return 0
-  fi
+  ls ${SERVER_CONFPATH} > ${SERVER_TMP}
 
-  if [ -f ${SERVER_PID} ]; then
-    killproc -p $SERVER_PID -d 300 -TERM $SERVER_CMD
-    RETVAL=$?
-    [ $RETVAL -eq 0 ] && rm -f $SERVER_PID
-  fi
+  while read line;
+  do
+    if [ -f ${line} ]; then
+      pidfile_name=`cat ${line}  | grep pidfile | awk -F '=' '{print $2}'`
+      pidfile=${pidfile_name//\"/}
+      if [ -f ${pidfile} ]; then
+        cd ${SERVER_PTH}
+        rs=`$SERVER_CMD ${SERVER_OPT_STOP}${line}`
+        cd - >/dev/null 2>&1
+        usleep 10000
+
+        if [ -f ${pidfile} ]; then
+          killproc -p $pidfile -d 300 -TERM $SERVER_CMD
+          RETVAL=$?
+          [ $RETVAL -eq 0 ] && rm -f ${pidfile}
+        fi
+      fi
+    fi
+  done < ${SERVER_TMP}
 }
 
 status_service()
 {
-  if [ -f ${SERVER_PID} ]; then
-    echo $"${SERVER_NAME} is running"
-  else
-    echo $"${SERVER_NAME} is not running"
-  fi
+  ls ${SERVER_CONFPATH} > ${SERVER_TMP}
+  while read line;
+  do
+    pidfile_name=`cat ${line}  | grep pidfile | awk -F '=' '{print $2}'`
+    pidfile=${pidfile_name//\"/} 
+    server_ins=${line##*/}
+    if [ -f $pidfile ]; then
+      echo "${server_ins/.conf/} is running"
+    else
+      echo "${server_ins/.conf/} is not running"
+    fi
+  done < ${SERVER_TMP}
 }
 
 if [ $# != 1 ]; then
