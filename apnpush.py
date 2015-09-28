@@ -24,6 +24,7 @@ class ApnPush(object):
 
     def push(self, event):
         user = event.get("user", "")
+        msg_type = event.get("msg_type", "other")
         msg = event.get("msg", "")
         if not user:
             logging.info("invalid message received")
@@ -35,7 +36,15 @@ class ApnPush(object):
             return
 
         device_token = device_token.decode("utf-8")
-        push_msg = msg if msg else "您有一条明信消息"
+
+        push_msg = ""
+        if not msg:
+            if msg_type == "call":
+                push_msg = "您有一个未接来电"
+            else:
+                push_msg = "您有一条明信消息"
+        else:
+            push_msg = msg
                  
         payload = Payload(alert = push_msg, sound = "default", badge = 1)
         identifier = random.getrandbits(32)
@@ -49,6 +58,7 @@ class ApnPush(object):
             self._apns_enhanced.gateway_server.force_close()
 
     def check_fails(self):
+        logging.info("start check fails:")
         feedback_connection = APNs(use_sandbox=True, cert_file='cert.pem', key_file='key.pem')
         for (token_hex, fail_time) in feedback_connection.feedback_server.items():
             user = self._sentinel_salve.get(token_hex)
