@@ -23,7 +23,9 @@ class ApnPush(object):
         self.check_fails()
 
     def push(self, event):
+        logging.info("begin to push %r" % event)
         user = event.get("user", "")
+        user = user.replace("temp", "")
         msg_type = event.get("msg_type", "other")
         msg = event.get("msg", "")
         if not user:
@@ -36,6 +38,7 @@ class ApnPush(object):
             return
 
         device_token = device_token.decode("utf-8")
+        logging.info("begin to push %s" % device_token)
 
         push_msg = ""
         if not msg:
