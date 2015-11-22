@@ -14,7 +14,7 @@ class ApnPush(object):
         self._sentinel_master = None
         
     def start(self):
-        self._apns_enhanced = APNs(use_sandbox=True, cert_file='cert.pem', key_file='key.pem', enhanced=True)
+        self._apns_enhanced = APNs(use_sandbox=False, cert_file='cert.pem', key_file='key.pem', enhanced=True)
         self._apns_enhanced.gateway_server.register_response_listener(self.response_listener)
         self._sentinel = Sentinel([('localhost', 26379)], socket_timeout = 1)
         self._sentinel_salve  = self._sentinel.slave_for('master', socket_timeout = 0.5)
@@ -62,7 +62,7 @@ class ApnPush(object):
 
     def check_fails(self):
         logging.info("start check fails:")
-        feedback_connection = APNs(use_sandbox=True, cert_file='cert.pem', key_file='key.pem')
+        feedback_connection = APNs(use_sandbox=False, cert_file='cert.pem', key_file='key.pem')
         for (token_hex, fail_time) in feedback_connection.feedback_server.items():
             user = self._sentinel_salve.get(token_hex)
             self._sentinel_master.delete(token_hex)
