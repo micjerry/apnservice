@@ -1,8 +1,9 @@
 import logging
+
+import tornado.ioloop
+from pika import adapters
 import pika
 import json
-
-from redis.sentinel import Sentinel
 
 class ApnConsumer(object):
     EXCHANGE      = 'apppush'
@@ -20,9 +21,8 @@ class ApnConsumer(object):
 
     def connect(self):
         logging.info('Connecting to %s' % self._url)
-        return pika.SelectConnection(pika.URLParameters(self._url),
-                                     self.on_connection_open,
-                                     stop_ioloop_on_close = False)
+        return adapters.TornadoConnection(pika.URLParameters(self._url),
+                                     self.on_connection_open)
 
     def on_connection_open(self, unused_connection):
         logging.info('Connection opened')
@@ -124,13 +124,12 @@ class ApnConsumer(object):
 
     def run(self):
         self._connection = self.connect()
-        self._connection.ioloop.start()
+        tornado.ioloop.IOLoop.instance().start()
 
     def stop(self):
         logging.info("Stopping")
         self._closing = True
         self.stop_consuming()
-        self._connection.ioloop.start()
         logging.info("Stopped")
 
     def close_connection(self):

@@ -25,14 +25,12 @@ class ApnServer(object):
     def __init__(self):
         self._apnconsumer = None
         self._apnpush = None
-        self._amurl = 'amqp://mxpub:mhearts2015@localhost:6500/%2F?heartbeat=10'
+        self._amurl = 'amqp://mxpub:mhearts2015@localhost:6500/%2F'
 
     def start(self):
         self._apnpush = ApnPush()
         self._apnpush.start()
         self._apnconsumer = ApnConsumer(self._apnpush, self._amurl)
-        #t = threading.Thread(target=self._apnconsumer.run)
-        #t.start()
         self._apnconsumer.run()
         
 
