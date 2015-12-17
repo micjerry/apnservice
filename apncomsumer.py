@@ -124,7 +124,7 @@ class ApnConsumer(object):
 
     def run(self):
         self._connection = self.connect()
-        tornado.ioloop.IOLoop.instance().start()
+        self._connection.ioloop.start()
 
     def stop(self):
         logging.info("Stopping")
