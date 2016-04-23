@@ -2,18 +2,8 @@ import time, threading
 import random
 import logging
 
-from  mickey.commonconf import SINGLE_MODE, APN_USE_SANDBOX
-
-if SINGLE_MODE:
-    import redis
-    _sentinel        = redis.StrictRedis(host='localhost', port=6379, db=0, socket_timeout=5.0)
-    _sentinel_master = _sentinel
-    _sentinel_salve  = _sentinel
-else:
-    from redis.sentinel import Sentinel
-    _sentinel         = Sentinel([('localhost', 26379)], socket_timeout = 1)
-    _sentinel_salve   = _sentinel.slave_for('master', socket_timeout = 0.5)
-    _sentinel_master  = _sentinel.master_for('master', socket_timeout = 0.5)
+from  mickey.commonconf import APN_USE_SANDBOX, REDIS_IOS_PREFIX
+import mickey.redis
 
 from apns import APNs, Frame, Payload
 
@@ -25,20 +15,13 @@ else:
     _key_file = 'key.pem'
 
 class ApnPush(object):
-    IOS_KEY_FLAG = 'ioskey'
     
     def __init__(self):
         self._apns_enhanced = None
-        self._sentinel = None
-        self._sentinel_salve = None
-        self._sentinel_master = None
         
     def start(self):
         self._apns_enhanced = APNs(use_sandbox = True, cert_file = _cert_file, key_file = _key_file, enhanced = True)
         self._apns_enhanced.gateway_server.register_response_listener(self.response_listener)
-        self._sentinel = _sentinel
-        self._sentinel_salve  = _sentinel_salve
-        self._sentinel_master = _sentinel_master
 
         self.check_fails()
 
@@ -52,12 +35,11 @@ class ApnPush(object):
             logging.info("invalid message received")
             return
 
-        device_token = self._sentinel_salve.get(self.IOS_KEY_FLAG + user)
+        device_token = mickey.redis.read_from_redis(REDIS_IOS_PREFIX + user)
         if not device_token:
             logging.info("it is not ios user")
             return
 
-        device_token = device_token.decode("utf-8")
         logging.info("begin to push %s" % device_token)
 
         push_msg = ""
@@ -84,11 +66,10 @@ class ApnPush(object):
         logging.info("start check fails:")
         feedback_connection = APNs(use_sandbox=True, cert_file='cert.pem', key_file='key.pem')
         for (token_hex, fail_time) in feedback_connection.feedback_server.items():
-            user = self._sentinel_salve.get(token_hex)
-            self._sentinel_master.delete(token_hex)
+            user = mickey.redis.read_from_redis(token_hex)
+            mickey.redis.remove_from_redis(token_hex)
             if user:
-                user_key = IOS_KEY_FLAG + iostoken.decode("utf-8")
-                self._sentinel_master.delete(user_key)
+                mickey.redis.remove_from_redis(REDIS_IOS_PREFIX + user)
 
         threading.Timer(86400, self.check_fails).start()
 
